@@ -3,7 +3,7 @@ from discord.ext.commands import Context
 
 
 # Here we name the cog and create a new class for the cog.
-class Template(commands.Cog, name="template"):
+class AgentCommands(commands.Cog, name="template"):
     def __init__(self, bot) -> None:
         self.bot = bot
 
@@ -27,4 +27,4 @@ class Template(commands.Cog, name="template"):
 
 # And then we finally add the cog to the bot so that it can load, unload, reload and use it's content.
 async def setup(bot) -> None:
-    await bot.add_cog(Template(bot))
+    await bot.add_cog(AgentCommands(bot))
