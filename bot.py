@@ -1,9 +1,7 @@
-import json
 import logging
 import os
 import platform
 import random
-import sys
 import exceptions
 
 import aiosqlite
@@ -115,7 +113,7 @@ logger.addHandler(file_handler)
 class DiscordBot(commands.Bot):
     def __init__(self) -> None:
         super().__init__(
-            command_prefix=commands.when_mentioned_or(""),
+            command_prefix=commands.when_mentioned_or("order"),
             intents=intents,
             help_command=None,
         )
@@ -148,6 +146,8 @@ class DiscordBot(commands.Bot):
         """
         for file in os.listdir(f"{os.path.realpath(os.path.dirname(__file__))}/cogs"):
             if file.endswith(".py"):
+                if file.startswith("template"):
+                    continue
                 extension = file[:-3]
                 try:
                     await self.load_extension(f"cogs.{extension}")
@@ -163,8 +163,8 @@ class DiscordBot(commands.Bot):
         """
         Setup the game status task of the bot.
         """
-        statuses = ["with Sense!"]
-        await self.change_presence(activity=discord.Game(random.choice(statuses)))
+        statuses = ["Let me cook!"]
+        await self.change_presence(activity=discord.CustomActivity(random.choice(statuses)), status=discord.Status.online)
 
     @status_task.before_loop
     async def before_status_task(self) -> None:
@@ -175,7 +175,8 @@ class DiscordBot(commands.Bot):
 
     async def close(self):
         print("Shutting down the bot...")
-        await self.database.connection.close()
+        if self.database and self.database.connection:
+            await self.database.connection.close()
         return await super().close()
 
     async def setup_hook(self) -> None:
@@ -190,7 +191,7 @@ class DiscordBot(commands.Bot):
         )
         self.logger.info("-------------------")
         await self.init_db()
-        # await self.load_cogs()
+        await self.load_cogs()
         self.status_task.start()
         self.database = DatabaseManager(
             connection=await aiosqlite.connect(
@@ -298,7 +299,6 @@ class DiscordBot(commands.Bot):
         else:
             raise error
 
-
 if __name__ == "__main__":
     bot = DiscordBot()
-    bot.run(os.getenv("TOKEN"))
+    bot.run(os.getenv("DISCORD_API_TOKEN"))

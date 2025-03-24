@@ -4,7 +4,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 
-class DevCommands(commands.Cog, name="owner"):
+class DevCommands(commands.Cog, name="dev"):
     def __init__(self, bot) -> None:
         self.bot = bot
 

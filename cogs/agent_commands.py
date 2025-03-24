@@ -3,7 +3,7 @@ from discord.ext.commands import Context
 
 
 # Here we name the cog and create a new class for the cog.
-class AgentCommands(commands.Cog, name="template"):
+class AgentCommands(commands.Cog, name="agent"):
     def __init__(self, bot) -> None:
         self.bot = bot
 
