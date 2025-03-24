@@ -1,17 +1,8 @@
-"""
-Copyright © Krypton 2019-Present - https://github.com/kkrypt0nn (https://krypton.ninja)
-Description:
-🐍 A simple template to start to code your own and personalized Discord bot in Python
-
-Version: 6.3.0
-"""
-
-import json
 import logging
 import os
 import platform
 import random
-import sys
+import exceptions
 
 import aiosqlite
 import discord
@@ -56,7 +47,7 @@ intents.message_content = True
 intents.presences = True
 """
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 
 """
 Uncomment this if you want to use prefix (normal) commands.
@@ -64,6 +55,7 @@ It is recommended to use slash commands and therefore not use prefix commands.
 
 If you want to use prefix commands, make sure to also enable the intent below in the Discord developer portal.
 """
+# intents.messages = True
 # intents.message_content = True
 
 # Setup both of the loggers
@@ -121,7 +113,7 @@ logger.addHandler(file_handler)
 class DiscordBot(commands.Bot):
     def __init__(self) -> None:
         super().__init__(
-            command_prefix=commands.when_mentioned_or(os.getenv("PREFIX")),
+            command_prefix=commands.when_mentioned_or("order"),
             intents=intents,
             help_command=None,
         )
@@ -135,7 +127,7 @@ class DiscordBot(commands.Bot):
         """
         self.logger = logger
         self.database = None
-        self.bot_prefix = os.getenv("PREFIX")
+        # self.bot_prefix = os.getenv("PREFIX")
         self.invite_link = os.getenv("INVITE_LINK")
 
     async def init_db(self) -> None:
@@ -154,6 +146,8 @@ class DiscordBot(commands.Bot):
         """
         for file in os.listdir(f"{os.path.realpath(os.path.dirname(__file__))}/cogs"):
             if file.endswith(".py"):
+                if file.startswith("template"):
+                    continue
                 extension = file[:-3]
                 try:
                     await self.load_extension(f"cogs.{extension}")
@@ -169,8 +163,8 @@ class DiscordBot(commands.Bot):
         """
         Setup the game status task of the bot.
         """
-        statuses = ["with you!", "with Krypton!", "with humans!"]
-        await self.change_presence(activity=discord.Game(random.choice(statuses)))
+        statuses = ["Let me cook!"]
+        await self.change_presence(activity=discord.CustomActivity(random.choice(statuses)), status=discord.Status.online)
 
     @status_task.before_loop
     async def before_status_task(self) -> None:
@@ -178,6 +172,12 @@ class DiscordBot(commands.Bot):
         Before starting the status changing task, we make sure the bot is ready
         """
         await self.wait_until_ready()
+
+    async def close(self):
+        print("Shutting down the bot...")
+        if self.database and self.database.connection:
+            await self.database.connection.close()
+        return await super().close()
 
     async def setup_hook(self) -> None:
         """
@@ -207,6 +207,7 @@ class DiscordBot(commands.Bot):
         """
         if message.author == self.user or message.author.bot:
             return
+        print("Message: ", message.content)
         await self.process_commands(message)
 
     async def on_command_completion(self, context: Context) -> None:
@@ -216,6 +217,7 @@ class DiscordBot(commands.Bot):
         :param context: The context of the command that has been executed.
         """
         full_command_name = context.command.qualified_name
+        print("Full command: ", full_command_name)
         split = full_command_name.split(" ")
         executed_command = str(split[0])
         if context.guild is not None:
@@ -243,6 +245,20 @@ class DiscordBot(commands.Bot):
                 color=0xE02B2B,
             )
             await context.send(embed=embed)
+        elif isinstance(error, exceptions.UserBlacklisted):
+            embed = discord.Embed(
+                description="You are blacklisted from using this bot!",
+                color=0xE02B2B,
+            )
+            await context.send(embed=embed)
+            if context.guild:
+                bot.logger.warning(
+                    f"{context.author} (ID: {context.author.id}) tried to execute a command in the guild {context.guild.name} (ID: {context.guild.id}), but the user is blacklisted from using the bot."
+                )
+            else:
+                bot.logger.warning(
+                    f"{context.author} (ID: {context.author.id}) tried to execute a command in the bot's DMs, but the user is blacklisted from using the bot."
+                )
         elif isinstance(error, commands.NotOwner):
             embed = discord.Embed(
                 description="You are not the owner of the bot!", color=0xE02B2B
@@ -283,6 +299,6 @@ class DiscordBot(commands.Bot):
         else:
             raise error
 
-
-bot = DiscordBot()
-bot.run(os.getenv("TOKEN"))
+if __name__ == "__main__":
+    bot = DiscordBot()
+    bot.run(os.getenv("DISCORD_API_TOKEN"))
