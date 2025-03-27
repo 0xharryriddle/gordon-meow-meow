@@ -5,8 +5,6 @@ from views.order_modal import OrderModal
 from views.order_summary import OrderSummaryView
 from utils import var_global
 
-
-
 class MenuView(discord.ui.View):
     def __init__(self, menu: list, context: Context, message_id=None):
         super().__init__(timeout=180)  # 3 minutes timeout
@@ -246,10 +244,10 @@ class MenuView(discord.ui.View):
         # Mark orders as open
         self.is_finalized = False
         
-        # Re-enable order modification buttons
-        await self.enable_ordering()
+        # Enable dropdown
+        self.food_select.disabled = False
 
-        
+        await self.update_public_menu()
         
         await interaction.response.send_message(
             f"Đơn đã được mở lại! (Tự động xóa sau {self.delete_cd_time} giây)",
@@ -284,37 +282,6 @@ class MenuView(discord.ui.View):
         if self.message:
             await self.message.edit(embed=embed, view=self)
 
-    async def enable_ordering(self):
-        """Enable ordering functionality after unfinalization"""
-        # Enable dropdown
-        self.food_select.disabled = False
-        
-        # Create a new embed indicating orders are open
-        embed = discord.Embed(
-            title="#📋 Thực đơn hôm nay",
-            description=f"**Ngày:** {datetime.datetime.now().strftime('%d/%m/%Y')}",
-            color=0x2ecc71  # Nice green color
-        )
-        
-        # Add menu items
-        menu_text = ""
-        for i, item in enumerate(self.menu, 1):
-            menu_text += f"**{i}.** {item}\n"
-        
-        embed.add_field(name="🍽️ Món ăn có sẵn", value=menu_text, inline=False)
-        
-        # Add status section
-        status_text = "Đang mở đơn - sử dụng các nút bên dưới để đặt món"
-        embed.add_field(name="📝 Trạng thái", value=status_text, inline=False)
-        
-        # Add footer
-        footer_text = "Sử dụng các nút bên dưới để đặt món • Gordon Meow Meow Service"
-        embed.set_footer(text=footer_text)
-        
-        # Update the message
-        if self.message:
-            await self.message.edit(embed=embed, view=self)
-    
     async def update_public_menu(self):
         """Update the public menu message with current orders"""
         if self.message:
