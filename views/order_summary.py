@@ -1,5 +1,6 @@
 import discord
 from views.order_modal import OrderModal
+from utils import var_global
 
 class OrderSummaryView(discord.ui.View):
     """A view for the private order summary that allows modification"""
@@ -8,6 +9,7 @@ class OrderSummaryView(discord.ui.View):
         self.menu_view = menu_view
         self.interaction = interaction
         self.user_id = str(interaction.user.id)
+        self.delete_cd_time  = var_global.cd_time
         
         # Create dropdown for selecting items to edit/remove
         self.create_item_select()
@@ -64,14 +66,16 @@ class OrderSummaryView(discord.ui.View):
         if not hasattr(self, 'item_select'):
             await interaction.response.send_message(
                 "Không có món nào để sửa!",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=self.delete_cd_time
             )
             return
             
         if not self.item_select.values:
             await interaction.response.send_message(
                 "Vui lòng chọn một món từ danh sách trước!",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=self.delete_cd_time
             )
             return
             
@@ -99,17 +103,21 @@ class OrderSummaryView(discord.ui.View):
         
     async def remove_item_callback(self, interaction: discord.Interaction):
         """Handle removing an item from the order"""
+
+        
         if not hasattr(self, 'item_select'):
             await interaction.response.send_message(
                 "Không có món nào để xóa!",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=self.delete_cd_time
             )
             return
             
         if not self.item_select.values:
             await interaction.response.send_message(
                 "Vui lòng chọn một món từ danh sách trước!",
-                ephemeral=True
+                ephemeral=True,
+                delete_after=self.delete_cd_time
             )
             return
             
@@ -124,9 +132,11 @@ class OrderSummaryView(discord.ui.View):
             # Update view with empty order
             # await interaction.message.edit(view=None)
             # If order is now empty
+
             await interaction.response.send_message(
-                "Đơn hàng của bạn hiện đang trống. Thêm món sử dụng menu chính.",
-                ephemeral=True
+                "Đơn hàng của bạn hiện đang trống. Thêm món sử dụng menu chính. (Tự động xóa sau 3 giây)",
+                ephemeral=True,
+                delete_after=self.delete_cd_time
             )
         else:
             # Update with remaining items

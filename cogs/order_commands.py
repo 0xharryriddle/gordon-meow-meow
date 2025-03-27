@@ -29,7 +29,7 @@ class OrderCommands(commands.Cog, name="order_commands"):
         if message.attachments.__len__() != 1:
             embed = discord.Embed(
                 title="Vui lòng cung cấp một hình ảnh của thực đơn để đặt món.",
-                color=0xE02B2B
+                color=0xE02B2B,
             )
             await context.reply(embed=embed, ephemeral=True)
             return
@@ -40,6 +40,11 @@ class OrderCommands(commands.Cog, name="order_commands"):
         image_url = attachments[0].url
         order_human_message = self.google_ai.order_message(image_url)
         ordered_message = self.google_ai.invoke(order_human_message)
+
+        ordered_message_content = ordered_message.content
+
+        # Pre-process the ordered message content
+        ordered_message_content = ordered_message_content[ordered_message_content.find('['):ordered_message_content.find(']') + 1 ]
 
         menu = json.loads(ordered_message.content)
 

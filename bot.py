@@ -301,4 +301,8 @@ class DiscordBot(commands.Bot):
 
 if __name__ == "__main__":
     bot = DiscordBot()
-    bot.run(os.getenv("DISCORD_API_TOKEN"))
+    token = os.getenv("DISCORD_API_TOKEN")
+    bot.run(
+        token=token,
+        reconnect=True,
+    )
