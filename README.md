@@ -30,9 +30,13 @@ information, I reserve the right to take down any repository that does not meet 
 
 Before requesting support, you should know that this template requires you to have at least a **basic knowledge** of
 Python and the library is made for **advanced users**. Do not use this template if you don't know the
-basics or some advanced topics such as OOP or async. [Here's](https://pythondiscord.com/pages/resources) a link for resources to learn python.
+basics or some advanced topics such as OOP or async. [Here's](https://pythondiscord.com/pages/resources) a link for
+resources to learn python.
 
-If you need some help for something, do not hesitate to create an issue over [here](https://github.com/kkrypt0nn/Python-Discord-Bot-Template/issues), but don't forget the read the [frequently asked questions](https://github.com/kkrypt0nn/Python-Discord-Bot-Template/wiki/Frequently-Asked-Questions) before.
+If you need some help for something, do not hesitate to create an issue
+over [here](https://github.com/kkrypt0nn/Python-Discord-Bot-Template/issues), but don't forget the read
+the [frequently asked questions](https://github.com/kkrypt0nn/Python-Discord-Bot-Template/wiki/Frequently-Asked-Questions)
+before.
 
 All the updates of the template are available [here](UPDATES.md).
 
@@ -60,8 +64,8 @@ repository based on this template.
 Alternatively you can do the following:
 
 - Clone/Download the repository
-  - To clone it and get the updates you can definitely use the command
-    `git clone`
+    - To clone it and get the updates you can definitely use the command
+      `git clone`
 - Create a Discord bot [here](https://discord.com/developers/applications)
 - Get your bot token
 - Invite your bot on servers using the following invite:
@@ -72,7 +76,8 @@ Alternatively you can do the following:
 
 ## How to set up
 
-To set up the token you will have to make use of the [`.env.example`](.env.example) file; you should rename it to `.env` and replace the `YOUR_BOT...` content with your actual values that match for your bot.
+To set up the token you will have to make use of the [`.env.example`](.env.example) file; you should rename it to `.env`
+and replace the `YOUR_BOT...` content with your actual values that match for your bot.
 
 Alternatively you can simply create a system environment variable with the same names and their respective value.
 
@@ -96,11 +101,13 @@ After that you can start it with
 python bot.py
 ```
 
-> **Note**: You may need to replace `python` with `py`, `python3`, `python3.11`, etc. depending on what Python versions you have installed on the machine.
+> **Note**: You may need to replace `python` with `py`, `python3`, `python3.11`, etc. depending on what Python versions
+> you have installed on the machine.
 
 ### Docker
 
-Support to start the bot in a Docker container has been added. After having [Docker](https://docker.com) installed on your machine, you can simply execute:
+Support to start the bot in a Docker container has been added. After having [Docker](https://docker.com) installed on
+your machine, you can simply execute:
 
 ```
 docker compose up -d --build
@@ -128,3 +135,26 @@ the [tags on this repository](https://github.com/kkrypt0nn/Python-Discord-Bot-Te
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE.md](LICENSE.md) file for details
+
+### Deployment
+
+```shell
+docker build -t senseerp/gmeow:main .
+```
+
+```shell
+docker push senseerp/gmeow:main
+```
+
+```shell
+docker run -d \
+       --name gmeow \
+       --restart unless-stopped \
+       --env DISCORD_APPLICATION_ID="" \
+       --env DISCORD_API_TOKEN="" \
+       --env GOOGLE_API_KEY="" \
+       --env GOOGLE_MODEL="" \
+       --env DEEPGRAM_API_KEY="" \
+       --env INVITE_LINK="" \
+       senseerp/gmeow:main
+```
