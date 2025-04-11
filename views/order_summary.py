@@ -5,7 +5,7 @@ from utils import var_global
 class OrderSummaryView(discord.ui.View):
     """A view for the private order summary that allows modification"""
     def __init__(self, menu_view, interaction):
-        super().__init__(timeout=None)
+        super().__init__(timeout=21600) # 6 hours: 6 * 60 * 60
         self.menu_view = menu_view
         self.interaction = interaction
         self.user_id = str(interaction.user.id)
