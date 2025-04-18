@@ -1,158 +1,124 @@
 import discord
 from views.order_modal import OrderModal
-from utils import var_global
 
 class OrderSummaryView(discord.ui.View):
-    """A view for the private order summary that allows modification"""
     def __init__(self, menu_view, interaction):
         super().__init__(timeout=180)
-        self.menu_view = menu_view
-        self.interaction = interaction
-        self.user_id = str(interaction.user.id)
-        self.delete_cd_time  = var_global.cd_time
+        self.menu_view = menu_view  # Reference to the parent menu view
+        self.interaction = interaction  # Store the original interaction
+        self.delete_cd_time = menu_view.delete_cd_time
         
-        # Create dropdown for selecting items to edit/remove
-        self.create_item_select()
-        
-        # Add Edit Item button
-        edit_button = discord.ui.Button(
-            label="Sửa món",
-            style=discord.ButtonStyle.primary,
-            custom_id="edit_item",
-            emoji="✏️"
-        )
-        edit_button.callback = self.edit_item_callback
-        self.add_item(edit_button)
-        
-        # Add Remove Item button
-        remove_button = discord.ui.Button(
-            label="Xóa món",
-            style=discord.ButtonStyle.danger,
-            custom_id="remove_item",
-            emoji="❌"
-        )
-        remove_button.callback = self.remove_item_callback
-        self.add_item(remove_button)
-        
-    def create_item_select(self):
-        """Create a dropdown with current order items"""
-        # Only add if there are items in the order
-        if self.user_id in self.menu_view.user_orders and self.menu_view.user_orders[self.user_id]:
-            options = [
-                discord.SelectOption(
-                    label=food[:25],
-                    value=food,
-                    description=f"Số lượng: {qty}"
-                ) for food, qty in self.menu_view.user_orders[self.user_id].items()
-            ]
-            
-            # Add the select menu for items
-            self.item_select = discord.ui.Select(
-                placeholder="Chọn món để sửa/xóa",
-                options=options,
-                custom_id="item_select"
-            )
-            # Set the callback
-            self.item_select.callback = self.on_item_select
-            self.add_item(self.item_select)
-            
-    async def on_item_select(self, interaction: discord.Interaction):
-        """Handle when an item is selected from the dropdown"""
-        # Just acknowledge the selection
-        await interaction.response.defer()
+        # Get all the user's orders to create the buttons
+        self.create_food_buttons()
     
-    async def edit_item_callback(self, interaction: discord.Interaction):
-        """Handle editing an item's quantity"""
-        if not hasattr(self, 'item_select'):
-            await interaction.response.send_message(
-                "Không có món nào để sửa!",
-                ephemeral=True,
-                delete_after=self.delete_cd_time
+    async def create_food_buttons(self):
+        """Create buttons for each food item the user has ordered"""
+        try:
+            # Get user's database ID
+            user_db_id = await self.menu_view.database.get_or_create_user(
+                self.interaction.user.id,
+                self.interaction.user.display_name
             )
-            return
             
-        if not self.item_select.values:
-            await interaction.response.send_message(
-                "Vui lòng chọn một món từ danh sách trước!",
-                ephemeral=True,
-                delete_after=self.delete_cd_time
+            # Get user's items from database
+            rows = await self.menu_view.bot.database.connection.execute(
+                """
+                SELECT i.id, i.name, ui.quantity FROM user_item ui
+                JOIN items i ON ui.item_id = i.id
+                WHERE ui.user_id = ? AND i.order_id = ?
+                ORDER BY i.name
+                """,
+                (user_db_id, self.menu_view.order_id)
             )
-            return
             
-        selected_food = self.item_select.values[0]
-        # Use the OrderModal to get new quantity
-        modal = OrderModal(selected_food, self.handle_edit_quantity)
-        await interaction.response.send_modal(modal)
-        
-    async def handle_edit_quantity(self, interaction: discord.Interaction, food_name: str, quantity: int):
-        """Handle the quantity update from the modal"""
-        # Update the quantity
-        self.menu_view.user_orders[self.user_id][food_name] = quantity
-        
-        # Update the order summary
-        embed = self.menu_view.create_order_summary_embed(interaction.user)
-        new_view = OrderSummaryView(self.menu_view, interaction)
-        
-        # Update public menu
-        await self.menu_view.update_public_menu()
-        
-        await interaction.response.edit_message(
-            embed=embed,
-            view=new_view
-        )
-        
-    async def remove_item_callback(self, interaction: discord.Interaction):
-        """Handle removing an item from the order"""
-
-        
-        if not hasattr(self, 'item_select'):
-            await interaction.response.send_message(
-                "Không có món nào để xóa!",
-                ephemeral=True,
-                delete_after=self.delete_cd_time
-            )
-            return
+            async with rows as cursor:
+                results = await cursor.fetchall()
+                for row in results:
+                    item_id = row[0]
+                    food_name = row[1]
+                    qty = row[2]
+                    
+                    # Create a button for each food item
+                    edit_button = discord.ui.Button(
+                        label=f"Chỉnh sửa {food_name} (x{qty})",
+                        style=discord.ButtonStyle.primary,
+                        custom_id=f"edit_{food_name}"
+                    )
+                    edit_button.callback = lambda i=food_name: self.edit_food_callback(i)
+                    self.add_item(edit_button)
+                    
+                    remove_button = discord.ui.Button(
+                        label=f"Xóa {food_name}",
+                        style=discord.ButtonStyle.danger,
+                        custom_id=f"remove_{food_name}"
+                    )
+                    remove_button.callback = lambda i=food_name: self.remove_food_callback(i)
+                    self.add_item(remove_button)
+        except Exception as e:
+            print(f"Error in create_food_buttons: {e}")
+    
+    async def edit_food_callback(self, food_name):
+        """Callback for editing a food item quantity"""
+        try:
+            # Don't allow modifications if order is finalized
+            if self.menu_view.is_finalized:
+                await self.interaction.response.send_message(
+                    f"Đơn đã được chốt và không thể thay đổi! (Tự động xóa sau {self.delete_cd_time}s)",
+                    ephemeral=True,
+                    delete_after=self.delete_cd_time
+                )
+                return
+                
+            # Show quantity modal
+            modal = OrderModal(food_name, self.menu_view.handle_quantity)
+            await self.interaction.response.send_modal(modal)
+        except Exception as e:
+            print(f"Error in edit_food_callback: {e}")
+    
+    async def remove_food_callback(self, food_name):
+        """Callback for removing a food item"""
+        try:
+            # Don't allow modifications if order is finalized
+            if self.menu_view.is_finalized:
+                await self.interaction.response.send_message(
+                    f"Đơn đã được chốt và không thể thay đổi! (Tự động xóa sau {self.delete_cd_time}s)",
+                    ephemeral=True,
+                    delete_after=self.delete_cd_time
+                )
+                return
+                
+            # Find the item ID for this food
+            item_id = await self.menu_view.get_item_id_by_name(food_name)
             
-        if not self.item_select.values:
-            await interaction.response.send_message(
-                "Vui lòng chọn một món từ danh sách trước!",
-                ephemeral=True,
-                delete_after=self.delete_cd_time
-            )
-            return
-            
-        selected_food = self.item_select.values[0]
-        
-        # Remove the item
-        if selected_food in self.menu_view.user_orders[self.user_id]:
-            del self.menu_view.user_orders[self.user_id][selected_food]
-
-        # Update the order summary
-        if self.user_id not in self.menu_view.user_orders or not self.menu_view.user_orders[self.user_id]:
-            # Update view with empty order
-            # await interaction.message.edit(view=None)
-            # If order is now empty
-
-            await interaction.response.send_message(
-                "Đơn hàng của bạn hiện đang trống. Thêm món sử dụng menu chính. (Tự động xóa sau 3 giây)",
-                ephemeral=True,
-                delete_after=self.delete_cd_time
-            )
-        else:
-            # Update with remaining items
-            embed = self.menu_view.create_order_summary_embed(interaction.user)
-            new_view = OrderSummaryView(self.menu_view, interaction)
-            
-            await interaction.response.edit_message(
-                embed=embed,
-                view=new_view
-            )
-        
-        # Update public menu
-        await self.menu_view.update_public_menu()
-
-        # If no more items, remove the user entry
-        if not self.menu_view.user_orders[self.user_id]:
-            del self.menu_view.user_orders[self.user_id]
-            
-            
+            if item_id:
+                # Get user's database ID
+                user_db_id = await self.menu_view.database.get_or_create_user(
+                    self.interaction.user.id,
+                    self.interaction.user.display_name
+                )
+                
+                # Delete the user's item
+                await self.menu_view.bot.database.connection.execute(
+                    "DELETE FROM user_item WHERE user_id = ? AND item_id = ?",
+                    (user_db_id, item_id)
+                )
+                await self.menu_view.bot.database.connection.commit()
+                
+                await self.interaction.response.send_message(
+                    f"Đã xóa món {food_name}! (Tự động xóa sau {self.delete_cd_time}s)",
+                    ephemeral=True,
+                    delete_after=self.delete_cd_time
+                )
+                
+                # Update the menu
+                await self.menu_view.update_public_menu()
+                
+                # Update the user's order summary
+                new_embed = await self.menu_view.create_order_summary_embed(self.interaction.user)
+                await self.interaction.followup.edit_message(
+                    message_id=self.interaction.message.id,
+                    embed=new_embed,
+                    view=OrderSummaryView(self.menu_view, self.interaction)  # Create a new view with updated buttons
+                )
+        except Exception as e:
+            print(f"Error in remove_food_callback: {e}")

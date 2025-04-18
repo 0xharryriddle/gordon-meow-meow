@@ -141,6 +141,7 @@ cython_debug/
 .idea/*
 
 # SQLITE database
+*.db
 
 # Log file
 discord.log

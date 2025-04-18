@@ -6,6 +6,7 @@ import exceptions
 
 import aiosqlite
 import discord
+from discord import Webhook
 from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from dotenv import load_dotenv
@@ -198,6 +199,7 @@ class DiscordBot(commands.Bot):
                 f"{os.path.realpath(os.path.dirname(__file__))}/database/database.db"
             )
         )
+        self.logger.info("Database connection established.")
 
     async def on_message(self, message: discord.Message) -> None:
         """

@@ -1,10 +1,12 @@
 import discord
+from utils import var_global
 
 class OrderModal(discord.ui.Modal, title="Nhập chi tiết đơn đặt món ăn"):
     def __init__(self, food_name: str, callback):
         super().__init__()
         self.food_name = food_name
         self.callback = callback
+        self.delete_cd_time = var_global.cd_time
         
         self.quantity = discord.ui.TextInput(
             label="Số lượng",
@@ -19,7 +21,11 @@ class OrderModal(discord.ui.Modal, title="Nhập chi tiết đơn đặt món ă
         try:
             qty = int(self.quantity.value)
             if qty <= 0:
-                await interaction.response.send_message("Sai số lượng, vui lòng nhập số lượng lại!", ephemeral=True)
+                await interaction.response.send_message(
+                    "Sai số lượng, vui lòng nhập số lượng lại!",
+                    ephemeral=True,
+                    delete_after=self.delete_cd_time
+                )
                 return
             await self.callback(interaction, self.food_name, qty)
         except ValueError:

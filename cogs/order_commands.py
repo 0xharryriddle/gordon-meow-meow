@@ -36,27 +36,67 @@ class OrderCommands(commands.Cog, name="order_commands"):
         
         pending_message = await context.reply("Vui lòng đợi trong khi tôi xử lý thực đơn...")
 
-        attachments = context.message.attachments
-        image_url = attachments[0].url
-        order_human_message = self.google_ai.order_message(image_url)
-        ordered_message = self.google_ai.invoke(order_human_message)
+        try:
+            # Process image with AI
+            attachments = context.message.attachments
+            image_url = attachments[0].url
+            order_human_message = self.google_ai.order_message(image_url)
+            ordered_message = self.google_ai.invoke(order_human_message)
 
-        ordered_message_content = ordered_message.content
-
-        # Pre-process the ordered message content
-        ordered_message_content = ordered_message_content[ordered_message_content.find('['):ordered_message_content.find(']') + 1 ]
-
-        menu = json.loads(ordered_message.content)
-
-        await pending_message.delete()
-        
-        view = MenuView(menu, context)
-        
-        # Create a new embed for the menu
-        embed = view.create_menu_embed()
-        
-        # Send the message and store it in the view for later updates
-        view.message = await context.send(embed=embed, view=view)
+            ordered_message_content = ordered_message.content
+            # Pre-process the ordered message content
+            ordered_message_content = ordered_message_content[ordered_message_content.find('['):ordered_message_content.find(']') + 1 ]
+            menu = json.loads(ordered_message.content)
+            
+            # Create database records immediately
+            # 1. Get or create user
+            user_db_id = await self.bot.database.get_or_create_user(
+                context.author.id, 
+                context.author.display_name
+            )
+            
+            # 2. Create the order - we'll use a placeholder message_id for now
+            temp_message_id = "pending"
+            order_id = await self.bot.database.create_order(
+                user_db_id,
+                str(context.guild.id),
+                temp_message_id
+            )
+            
+            # 3. Store the image URL
+            await self.bot.database.connection.execute(
+                "UPDATE `order` SET image_url = ? WHERE id = ?",
+                (image_url, order_id)
+            )
+            await self.bot.database.connection.commit()
+            
+            # 4. Create menu items
+            for food in menu:
+                await self.bot.database.create_item(order_id, food)
+            
+            # Delete pending message
+            await pending_message.delete()
+            
+            # Create the menu view with the order ID
+            view = MenuView(order_id, context)
+            
+            # Create a new embed for the menu
+            embed = await view.create_menu_embed()
+            
+            # Send the message and store it in the view for later updates
+            view.message = await context.send(embed=embed, view=view)
+            
+            # Update the message ID in the database
+            await self.bot.database.connection.execute(
+                "UPDATE `order` SET order_message_id = ? WHERE id = ?",
+                (str(view.message.id), order_id)
+            )
+            await self.bot.database.connection.commit()
+            
+        except Exception as e:
+            print(f"Error in order command: {e}")
+            await pending_message.delete()
+            await context.reply(f"Đã xảy ra lỗi khi xử lý thực đơn: {e}")
     
     @commands.hybrid_command(
         name="finalize_order",
@@ -82,15 +122,19 @@ class OrderCommands(commands.Cog, name="order_commands"):
         # Get the active order view
         active_view = self.bot.active_order_view
         
+        # Update order status in database
+        if active_view.order_id:
+            await self.bot.database.update_order_status(active_view.order_id, 'completed')
+        
         # Finalize all orders
-        finalized_embed = active_view.create_finalized_order_embed()
+        finalized_embed = await active_view.create_finalized_order_embed()
         await context.reply(embed=finalized_embed)
         
-        # Clear active orders after finalization
-        active_view.user_orders = {}
+        # Mark as finalized
+        active_view.is_finalized = True
         await active_view.update_public_menu()
         
-        await context.send("Tất cả đơn hàng đã được chốt và xóa.", ephemeral=True)
+        await context.send("Tất cả đơn hàng đã được chốt.", ephemeral=True)
 
 # And then we finally add the cog to the bot so that it can load, unload, reload and use it's content.
 async def setup(bot: commands.Bot) -> None:
