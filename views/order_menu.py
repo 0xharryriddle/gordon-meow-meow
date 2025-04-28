@@ -7,7 +7,7 @@ from utils import var_global
 
 class MenuView(discord.ui.View):
     def __init__(self, menu: list, context: Context, message_id=None):
-        super().__init__(timeout=21600)  # 6 hours: 6 * 60 * 60
+        super().__init__(timeout=None)  # 6 hours: 6 * 60 * 60
         self.menu = menu
         self.context = context
         self.user_orders = {}  # Dict to store orders by user: {user_id: {food_name: quantity}}
