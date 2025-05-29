@@ -30,17 +30,41 @@ class GoogleAI:
             content=[
                 {
                     "type": "text",
-                    "text": "Give me only the array of foods in the image, does not include anything else. I need to get the js array only and does not need to put it in a variable or a code block in markdown. There are some names of foods are lacking, please fill in the missing names.",
+                    "text": """
+                    Analyze this Vietnamese menu image and extract ONLY the main food dishes. Follow these rules:
+                    
+                    1. INCLUDE: Main dishes (rice dishes, noodle dishes, meat dishes, seafood dishes, vegetable dishes, soups)
+                    2. EXCLUDE: Drinks (nước, trà, cà phê, bia, etc.), desserts, snacks, side items
+                    3. Focus on complete meal items that would be ordered as main courses
+                    4. If some dish names are partially visible or unclear, use your knowledge of Vietnamese cuisine to complete them appropriately
+                    5. Return ONLY a clean JSON array of Vietnamese dish names
+                    6. Do not include any explanation, code blocks, or markdown formatting
+                    
+                    Examples of what TO INCLUDE:
+                    - Cơm (rice dishes)
+                    - Bún, phở, miến (noodle dishes) 
+                    - Thịt (meat dishes)
+                    - Cá (fish dishes)
+                    - Canh (soups)
+                    - Rau (vegetable dishes)
+                    
+                    Examples of what TO EXCLUDE:
+                    - Nước ngọt, nước suối
+                    - Bia, rượu
+                    - Trà, cà phê
+                    - Chè, bánh ngọt
+                    """,
                 },
                 {
                     "type": "text",
                     "text": """
-                    An example of returned message:
+                    Expected output format (example):
                     [
-                        "Bún chả",
-                        "Bún riêu",
-                        "Bún mắm",
-                        "Bún ốc"
+                        "Thịt luộc cà pháo",
+                        "Cá điêu hồng chưng tương", 
+                        "Bò xào rau cần",
+                        "Canh khổ qua",
+                        "Vịt kho gừng"
                     ]
                     """
                 },
@@ -51,4 +75,3 @@ class GoogleAI:
             ]
         )
         return message
-    

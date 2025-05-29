@@ -3,78 +3,111 @@ import discord
 from discord.ext.commands import Context
 from views.order_modal import OrderModal
 from views.order_summary import OrderSummaryView
+from views.finalized_order_view import FinalizedOrderView
 from utils import var_global
 
 class MenuView(discord.ui.View):
     def __init__(self, menu: list, context: Context, message_id=None):
-        super().__init__(timeout=None)  # 6 hours: 6 * 60 * 60
+        super().__init__(timeout=None)
         self.menu = menu
         self.context = context
-        self.user_orders = {}  # Dict to store orders by user: {user_id: {food_name: quantity}}
-        self.message_id = message_id  # Store message ID for updating the embed
-        self.message = None  # Will store the message object
-        self.order_message = None  # Will store the user's private order message
-        self.is_finalized = False  # Track if the order has been finalized
+        self.user_orders = {}
+        self.message_id = message_id
+        self.message = None
+        self.order_message = None
+        self.is_finalized = False
         self.delete_cd_time = var_global.cd_time
         
         # Store this view as the active one in the bot
         if hasattr(context.bot, 'active_order_view'):
             context.bot.active_order_view = self
         
-        # Create dropdown menu for food selection
+        # Enhanced dropdown with better styling
         self.food_select = discord.ui.Select(
-            placeholder="Chọn món ăn",
+            placeholder="🍽️ Chọn món ăn yêu thích của bạn...",
             min_values=1,
             max_values=1,
             options=[
                 discord.SelectOption(
-                    label=food[:25],  # Discord has a 25-character limit for select options
+                    label=food[:23] + "..." if len(food) > 23 else food,
                     value=food,
-                    description=f"Order {food}",
-                    emoji="🍽️"  # Food emoji
+                    description=f"🛒 Thêm {food} vào đơn hàng",
+                    emoji="🥘" if "cơm" in food.lower() else 
+                          "🍜" if any(x in food.lower() for x in ["bún", "phở", "miến"]) else
+                          "🥩" if "thịt" in food.lower() else
+                          "🐟" if "cá" in food.lower() else
+                          "🍲" if "canh" in food.lower() else
+                          "🥬" if "rau" in food.lower() else "🍽️"
                 ) for food in menu
             ]
         )
         self.food_select.callback = self.food_select_callback
         self.add_item(self.food_select)
         
-        # Add clear all order button
+        # Enhanced buttons with better styling
         clear_all_button = discord.ui.Button(
-            label="Xóa tất cả món ăn",
+            label="Xóa tất cả",
             style=discord.ButtonStyle.danger,
             custom_id="clear_all_order",
-            emoji="🗑️"  # Trash emoji
+            emoji="🗑️",
+            row=1
         )
         clear_all_button.callback = self.clear_all_order_callback
         self.add_item(clear_all_button)
         
-        # Add view order button
         view_button = discord.ui.Button(
-            label="Xem món ăn đã đặt",
+            label="Xem đơn hàng",
             style=discord.ButtonStyle.primary,
             custom_id="view_order",
-            emoji="👀"  # Eyes emoji
+            emoji="👁️",
+            row=1
         )
         view_button.callback = self.view_order_callback
         self.add_item(view_button)
         
+        # Refresh button for better UX
+        refresh_button = discord.ui.Button(
+            label="Làm mới",
+            style=discord.ButtonStyle.secondary,
+            custom_id="refresh_menu",
+            emoji="🔄",
+            row=1
+        )
+        refresh_button.callback = self.refresh_callback
+        self.add_item(refresh_button)
+        
         finalize_button = discord.ui.Button(
-                label="Chốt tất cả món ăn",
-                style=discord.ButtonStyle.success,
-                custom_id="finalize_order",
-                emoji="🔒"  # Lock emoji
-            )
+            label="Chốt đơn hàng",
+            style=discord.ButtonStyle.success,
+            custom_id="finalize_order",
+            emoji="✅",
+            row=2
+        )
         finalize_button.callback = self.finalize_order_callback
         self.add_item(finalize_button)
 
-        unfinalize_button  = discord.ui.Button(
+        unfinalize_button = discord.ui.Button(
             label="Mở lại đơn",
             style=discord.ButtonStyle.secondary,
             custom_id="unfinalize_order",
-            emoji="🔓"  # Unlock emoji
+            emoji="🔓",
+            row=2
         )
         unfinalize_button.callback = self.unfinalize_order_callback
         self.add_item(unfinalize_button)
+
+    async def refresh_callback(self, interaction: discord.Interaction):
+        """Handle refresh button for better UX"""
+        try:
+            # Update the menu display
+            embed = self.create_menu_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        except:
+            await interaction.response.send_message(
+                "🔄 Menu đã được làm mới!",
+                ephemeral=True,
+                delete_after=self.delete_cd_time
+            )
 
     async def food_select_callback(self, interaction: discord.Interaction):
         # Don't allow modifications if order is finalized
@@ -200,36 +233,62 @@ class MenuView(discord.ui.View):
             ephemeral=True
         )
     
+    def generate_copy_text(self):
+        """Generate the text format for copying the quantity summary"""
+        total_items = 0
+        food_totals = {}
+        
+        for foods in self.user_orders.values():
+            for food, qty in foods.items():
+                total_items += qty
+                if food in food_totals:
+                    food_totals[food] += qty
+                else:
+                    food_totals[food] = qty
+        
+        copy_text = "Tổng kết số lượng\n"
+        for food, qty in food_totals.items():
+            copy_text += f"• {food}: {qty}\n"
+            
+        copy_text += f"\nTổng cộng: {total_items} món"
+        
+        return copy_text
+
     async def finalize_order_callback(self, interaction: discord.Interaction):
         """Callback for finalizing all orders"""
+        try:
+            # Check if there are any orders
+            if not self.user_orders:
+                await interaction.response.send_message(
+                    f"Không có đơn nào để chốt! (Tự động xóa sau {self.delete_cd_time} giây)",
+                    ephemeral=True,
+                    delete_after=self.delete_cd_time
+                )
+                return
+                
+            # Create finalized order embed
+            embed = self.create_finalized_order_embed()
             
-        # Check if there are any orders
-        if not self.user_orders:
+            # Mark orders as finalized
+            self.is_finalized = True
+            
+            # Disable order modification buttons
+            await self.disable_ordering()
+            
+            # Create a view with copy button
+            copy_view = FinalizedOrderView(self)
+            
+            # Send the finalized order to the channel
             await interaction.response.send_message(
-                f"Không có đơn nào để chốt! (Tự động xóa sau {self.delete_cd_time} giây)",
+                f"Tất cả đơn đã được chốt! (Tự động xóa sau {self.delete_cd_time} giây)",
                 ephemeral=True,
                 delete_after=self.delete_cd_time
             )
-            return
             
-        # Create finalized order embed
-        embed = self.create_finalized_order_embed()
-        
-        # Mark orders as finalized
-        self.is_finalized = True
-        
-        # Disable order modification buttons
-        await self.disable_ordering()
-        
-        # Send the finalized order to the channel
-        await interaction.response.send_message(
-            f"Tất cả đơn đã được chốt! (Tự động xóa sau {self.delete_cd_time} giây)",
-            ephemeral=True,
-            delete_after=self.delete_cd_time
-        )
-        
-        await interaction.channel.send(embed=embed)
-    
+            await interaction.channel.send(embed=embed, view=copy_view)
+        except Exception as e:
+            print(f"Error in finalize_order_callback: {e}")
+
     async def unfinalize_order_callback(self, interaction: discord.Interaction):
         """Callback for re-opening all orders"""
         # Check if the order is already open
@@ -244,21 +303,46 @@ class MenuView(discord.ui.View):
         # Mark orders as open
         self.is_finalized = False
         
-        # Enable dropdown
+        # Enable dropdown and other buttons
         self.food_select.disabled = False
+        for item in self.children:
+            if hasattr(item, 'custom_id'):
+                if item.custom_id in ["clear_all_order", "finalize_order"]:
+                    item.disabled = False
+                elif item.custom_id == "unfinalize_order":
+                    item.disabled = True
 
         await self.update_public_menu()
         
+        # Create success embed
+        success_embed = discord.Embed(
+            title="🔓 **Đơn hàng đã được mở lại!**",
+            description=f"""
+✅ **Trạng thái:** Đơn hàng đã được mở lại thành công
+👤 **Được mở bởi:** {interaction.user.mention}
+⏰ **Thời gian:** {datetime.datetime.now().strftime('%H:%M:%S')}
+
+*Mọi người có thể tiếp tục đặt thêm món!* 🍽️
+""",
+            color=0x00D4AA
+        )
+        
         await interaction.response.send_message(
-            f"Đơn đã được mở lại! (Tự động xóa sau {self.delete_cd_time} giây)",
-            ephemeral=True,
-            delete_after=self.delete_cd_time
+            embed=success_embed,
+            ephemeral=False,
+            delete_after=self.delete_cd_time * 3
         )
 
     async def disable_ordering(self):
         """Disable ordering functionality after finalization"""
-        # Disable dropdown
+        # Disable dropdown and finalize button, enable unfinalize button
         self.food_select.disabled = True
+        for item in self.children:
+            if hasattr(item, 'custom_id'):
+                if item.custom_id in ["clear_all_order", "finalize_order"]:
+                    item.disabled = True
+                elif item.custom_id == "unfinalize_order":
+                    item.disabled = False
         
         # Create a new embed indicating orders are finalized
         embed = discord.Embed(
@@ -289,73 +373,140 @@ class MenuView(discord.ui.View):
             await self.message.edit(embed=embed, view=self)
 
     def create_menu_embed(self):
-        """Create a beautiful menu embed that everyone can see, including orders"""
+        """Create a stunning menu embed with enhanced visuals"""
+        # Dynamic color based on time of day
+        current_hour = datetime.datetime.now().hour
+        if 6 <= current_hour < 12:
+            color = 0xFFD700  # Golden morning
+            time_emoji = "🌅"
+            time_greeting = "Chào buổi sáng!"
+        elif 12 <= current_hour < 17:
+            color = 0xFF6B35  # Orange afternoon
+            time_emoji = "☀️"
+            time_greeting = "Chào buổi chiều!"
+        elif 17 <= current_hour < 20:
+            color = 0xFF8C00  # Dark orange evening
+            time_emoji = "🌆"
+            time_greeting = "Chào buổi tối!"
+        else:
+            color = 0x4169E1  # Royal blue night
+            time_emoji = "🌙"
+            time_greeting = "Chào buổi tối!"
+
         embed = discord.Embed(
-            title="#📋 Thực đơn hôm nay",
-            description=f"## **Ngày:** {datetime.datetime.now().strftime('%d/%m/%Y')}",
-            color=0x2ecc71  # Nice green color
+            title=f"🍽️ **THỰC ĐƠN HÔM NAY** 🍽️",
+            description=f"""
+{time_emoji} **{time_greeting}**
+📅 **Ngày:** {datetime.datetime.now().strftime('%d/%m/%Y')}
+⏰ **Thời gian:** {datetime.datetime.now().strftime('%H:%M')}
+
+✨ *Chào mừng bạn đến với hệ thống đặt món thông minh!*
+""",
+            color=color
         )
         
-        # Add menu items section with emoji
+        # Enhanced menu display with categories
         menu_text = ""
         for i, item in enumerate(self.menu, 1):
-            menu_text += f"**{i}.** {item}\n"
+            # Add appropriate emoji based on food type
+            if "cơm" in item.lower():
+                emoji = "🍚"
+            elif any(x in item.lower() for x in ["bún", "phở", "miến"]):
+                emoji = "🍜"
+            elif "thịt" in item.lower():
+                emoji = "🥩"
+            elif "cá" in item.lower():
+                emoji = "🐟"
+            elif "canh" in item.lower():
+                emoji = "🍲"
+            elif "rau" in item.lower():
+                emoji = "🥬"
+            else:
+                emoji = "🍽️"
+            
+            menu_text += f"`{i:02d}.` {emoji} **{item}**\n"
         
-        embed.add_field(name="🍽️ Món ăn có sẵn", value=menu_text, inline=False)
+        embed.add_field(
+            name="🍽️ **DANH SÁCH MÓN ĂN**",
+            value=menu_text,
+            inline=False
+        )
         
-        # Add current orders section if there are any
+        # Enhanced order display
         if self.user_orders:
             orders_text = ""
-            total_by_food = {}  # Track totals by food item
+            total_by_food = {}
+            user_count = len(self.user_orders)
             
-            # Group by food item
             for user_id, foods in self.user_orders.items():
                 user = self.context.guild.get_member(int(user_id))
                 user_name = user.display_name if user else "Người dùng không xác định"
                 
                 for food, qty in foods.items():
-                    # Add to total count for this food
                     if food in total_by_food:
                         total_by_food[food] += qty
                     else:
                         total_by_food[food] = qty
-                        
-                    # Add to user-specific order list
-                    orders_text += f"• **{food}** (x{qty}) - Đặt bởi {user_name}\n"
+                    
+                    orders_text += f"▸ **{food}** `x{qty}` 👤 *{user_name}*\n"
             
-            # Add order summary
             if orders_text:
-                embed.add_field(name="🛒 Các món đã đặt", value=orders_text, inline=False)
+                embed.add_field(
+                    name=f"🛒 **ĐƠN HÀNG HIỆN TẠI** ({user_count} người đặt)",
+                    value=orders_text,
+                    inline=False
+                )
                 
-                # Add totals by food item
+                # Beautiful totals display
                 totals_text = ""
+                total_items = 0
                 for food, total in total_by_food.items():
-                    totals_text += f"• **{food}**: {total}\n"
+                    total_items += total
+                    # Add progress bar visualization
+                    progress_bar = "█" * min(total, 10) + "░" * max(0, 10 - total)
+                    totals_text += f"▸ **{food}**: `{total}` `{progress_bar}`\n"
                 
-                embed.add_field(name="📊 Tổng món đã đặt", value=totals_text, inline=False)
+                embed.add_field(
+                    name=f"📊 **THỐNG KÊ TỔNG KẾT** ({total_items} món)",
+                    value=totals_text,
+                    inline=False
+                )
         
-        # Add status section
-        status_text = "Đang mở đơn - sử dụng các nút bên dưới để đặt món"
+        # Status with enhanced styling
         if self.is_finalized:
-            status_text = "Đơn đã được chốt và không thể thay đổi"
+            status_text = "🔒 **TRẠNG THÁI:** `ĐÃ CHỐT ĐƠN` - Không thể thay đổi"
+            embed.color = 0x95A5A6  # Gray for finalized
+        else:
+            status_text = "🟢 **TRẠNG THÁI:** `ĐANG MỞ ĐƠN` - Sẵn sàng nhận đặt hàng"
             
-        embed.add_field(name="📝 Trạng thái", value=status_text, inline=False)
+        embed.add_field(
+            name="📝 **TRẠNG THÁI ĐẶT HÀNG**",
+            value=status_text,
+            inline=False
+        )
         
-        # Add footer
-        footer_text = "Sử dụng các nút bên dưới để đặt món • Gordon Meow Meow Service"
+        # Enhanced footer with tips
         if self.is_finalized:
-            footer_text = "Đơn đã chốt • Gordon Meow Meow Service"
+            footer_text = "🎉 Đơn hàng đã hoàn tất • Gordon Meow Meow Service ⭐"
+        else:
+            footer_text = "💡 Mẹo: Sử dụng menu dropdown để đặt món nhanh • Gordon Meow Meow Service ⭐"
             
-        embed.set_footer(text=footer_text)
+        embed.set_footer(
+            text=footer_text,
+            icon_url="https://cdn-icons-png.flaticon.com/512/3075/3075977.png"
+        )
+        
+        # Add a beautiful banner image
+        embed.set_image(url="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=200&fit=crop&crop=center")
         
         return embed
         
     def create_order_summary_embed(self, user):
-        """Create a private order summary embed for the user"""
+        """Create a beautiful personal order summary"""
         embed = discord.Embed(
-            title="🛒 Món bạn đã đặt",
-            description=f"**Đặt bởi:** {user.mention}",
-            color=0x3498db  # Nice blue color
+            title="🛒 **ĐƠN HÀNG CỦA BẠN**",
+            description=f"👤 **Khách hàng:** {user.mention}\n⭐ *Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!*",
+            color=0x00D4AA  # Teal color
         )
 
         user_id = str(user.id)
@@ -363,34 +514,58 @@ class MenuView(discord.ui.View):
         order_text = ""
         
         if user_id in self.user_orders:
-            for food, qty in self.user_orders[user_id].items():
-                order_text += f"• **{food}**: {qty}\n"
+            for i, (food, qty) in enumerate(self.user_orders[user_id].items(), 1):
+                order_text += f"`{i:02d}.` **{food}**\n"
+                order_text += f"     └─ Số lượng: `{qty}`\n\n"
                 total_items += qty
 
-        embed.add_field(name="📋 Chi tiết đơn", value=order_text if order_text else "*No items in order*", inline=False)
-        embed.add_field(name="📊 Tổng số lượng món đã đặt", value=str(total_items), inline=True)
-        
-        footer_text = f"Last Updated: {datetime.datetime.now().strftime('%H:%M:%S')} • Dùng các nút bên dưới để tương tác"
-        if self.is_finalized:
-            footer_text = f"Last Updated: {datetime.datetime.now().strftime('%H:%M:%S')} • Orders finalized"
-            
-        embed.set_footer(text=footer_text)
-        
-        # Add a nice thumbnail
-        embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/1046/1046747.png")
-        
-        return embed
-    
-    def create_finalized_order_embed(self):
-        """Create a finalized order summary for all orders"""
-        embed = discord.Embed(
-            title="🔒 Tổng kết cuối cùng",
-            description=f"**Ngày đặt món:** {datetime.datetime.now().strftime('%d/%m/%Y lúc %H:%M:%S')}",
-            color=0xe74c3c  # Red color for finality
+        if not order_text:
+            order_text = "```\n🍽️ Chưa có món ăn nào trong đơn hàng\n```"
+
+        embed.add_field(
+            name="📋 **CHI TIẾT ĐƠN HÀNG**",
+            value=order_text,
+            inline=False
         )
         
-        # Add individual orders
-        for user_id, foods in self.user_orders.items():
+        # Summary statistics without price
+        summary_text = f"""
+🍽️ **Tổng số món:** `{total_items}`
+📊 **Trạng thái:** {'`Đã chốt`' if self.is_finalized else '`Đang chờ`'}
+"""
+        
+        embed.add_field(
+            name="📊 **THỐNG KÊ**",
+            value=summary_text,
+            inline=False
+        )
+        
+        embed.set_footer(
+            text=f"🕐 Cập nhật lúc: {datetime.datetime.now().strftime('%H:%M:%S')} • Sử dụng các nút bên dưới để chỉnh sửa",
+            icon_url=user.avatar.url if user.avatar else None
+        )
+        
+        embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2515/2515183.png")
+        
+        return embed
+
+    def create_finalized_order_embed(self):
+        """Create a spectacular finalized order summary"""
+        embed = discord.Embed(
+            title="🎉 **HOÀN TẤT ĐẶT HÀNG** 🎉",
+            description=f"""
+🏆 **Chúc mừng! Đơn hàng đã được xử lý thành công**
+📅 **Thời gian hoàn tất:** {datetime.datetime.now().strftime('%d/%m/%Y lúc %H:%M:%S')}
+⚡ **Trạng thái:** `HOÀN TẤT` - Sẵn sàng xử lý
+
+*Cảm ơn tất cả mọi người đã tham gia đặt hàng!* ✨
+""",
+            color=0xFF1744  # Bright red for excitement
+        )
+        
+        # Individual orders with enhanced styling (without price)
+        total_orders = len(self.user_orders)
+        for i, (user_id, foods) in enumerate(self.user_orders.items(), 1):
             user = self.context.guild.get_member(int(user_id))
             user_name = user.display_name if user else f"Người dùng {user_id}"
             
@@ -398,18 +573,18 @@ class MenuView(discord.ui.View):
             user_total = 0
             
             for food, qty in foods.items():
-                user_order += f"• {food}: {qty}\n"
+                user_order += f"▸ **{food}**: `{qty}` món\n"
                 user_total += qty
-                
-            user_order += f"\nTổng số món: {user_total}"
+            
+            user_order += f"\n📊 **Tổng số món:** `{user_total}`"
             
             embed.add_field(
-                name=f"📝 Đơn đặt món của {user_name}",
+                name=f"👤 **Đơn #{i:02d} - {user_name}**",
                 value=user_order,
                 inline=True
             )
         
-        # Add grand total section
+        # Grand total with spectacular display (without price)
         total_items = 0
         food_totals = {}
         
@@ -421,19 +596,25 @@ class MenuView(discord.ui.View):
                 else:
                     food_totals[food] = qty
         
-        totals_text = ""
+        totals_text = "```diff\n+ TỔNG KẾT CUỐI CÙNG +\n```\n"
         for food, qty in food_totals.items():
-            totals_text += f"• **{food}**: {qty}\n"
-            
-        totals_text += f"\n**Tổng cộng**: {total_items} món"
+            progress = "█" * min(qty, 15) + "░" * max(0, 15 - qty)
+            totals_text += f"▸ **{food}**: `{qty}` `{progress}`\n"
+        
+        totals_text += f"\n🏆 **TỔNG CỘNG:** `{total_items}` món"
+        totals_text += f"\n👥 **SỐ NGƯỜI THAM GIA:** `{total_orders}` người"
         
         embed.add_field(
-            name="📊 Tổng kết số lượng",
+            name="📊 **THỐNG KÊ TỔNG KẾT**",
             value=totals_text,
             inline=False
         )
         
-        embed.set_footer(text="Đơn đã được chốt • Gordon Meow Meow Service")
-        embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/3183/3183463.png")  # Receipt icon
+        embed.set_footer(
+            text="🌟 Cảm ơn bạn đã sử dụng Gordon Meow Meow Service! 🌟",
+            icon_url="https://cdn-icons-png.flaticon.com/512/3183/3183463.png"
+        )
+        
+        embed.set_image(url="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=200&fit=crop&crop=center")
         
         return embed
