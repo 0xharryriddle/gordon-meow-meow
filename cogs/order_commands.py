@@ -18,11 +18,11 @@ class OrderCommands(commands.Cog, name="order_commands"):
 
     @commands.command(
         name="order",
-        description="Đặt món ăn từ thực đơn hôm nay",
+        description="Đặt món ăn từ thực đơn Noel đặc biệt",
     )
     async def order(self, context: Context) -> None:
         """
-        Đặt món ăn sử dụng hình ảnh thực đơn.
+        Đặt món ăn Noel sử dụng hình ảnh thực đơn.
 
         :param context: The application command context.
         """
@@ -31,26 +31,63 @@ class OrderCommands(commands.Cog, name="order_commands"):
         message = context.message
         if message.attachments.__len__() != 1:
             embed = discord.Embed(
-                title="📸 **Thiếu hình ảnh thực đơn**",
-                description="🤖 Vui lòng đính kèm **một hình ảnh** thực đơn để tôi có thể phân tích và tạo đơn hàng cho bạn!",
-                color=0xE02B2B,
+                title="🎄❄️ Santa cần hình ảnh thực đơn Noel! ❄️🎄",
+                description=f"""
+```
+╔══════════════════════════════════╗
+║     🎅 THÔNG BÁO TỪ SANTA 🎅     ║
+║                                  ║
+║  Ho ho ho! Tôi cần một hình ảnh  ║
+║   thực đơn để chuẩn bị bữa tiệc  ║
+║        Noel đặc biệt cho bạn!    ║
+║                                  ║
+║      🎁 Hãy gửi ảnh ngay! 🎁      ║
+╚══════════════════════════════════╝
+```
+
+🌟 **Noel đang đến rất gần rồi!** Hãy nhanh chóng đính kèm hình ảnh thực đơn để chúng ta có thể bắt đầu chuẩn bị bữa tiệc thần tiên! ✨
+""",
+                color=0xC41E3A,
             )
-            embed.add_field(
-                name="💡 **Hướng dẫn:**",
-                value="1️⃣ Chụp ảnh thực đơn rõ ràng\n2️⃣ Đính kèm ảnh vào tin nhắn\n3️⃣ Gửi lệnh `order` cùng với ảnh",
-                inline=False
-            )
-            embed.set_footer(text="💫 Gordon Meow Meow Service - AI Powered")
+            embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+            embed.set_image(url="https://images.unsplash.com/photo-1512389098783-66b81f86e199?w=600&h=200&fit=crop")
             await context.reply(embed=embed, ephemeral=True)
             return
         
-        # Enhanced loading message
+        # Magical Christmas loading message with countdown feeling
+        import datetime
+        now = datetime.datetime.now()
+        days_to_christmas = 25 - now.day if now.month == 12 else 31 - now.day + 25
+        
+        loading_messages = [
+            f"🎅 Santa đang đọc thực đơn Noel của bạn...",
+            f"🎄 Elf đang chuẩn bị phép màu Giáng Sinh...",
+            f"⭐ Đang tìm kiếm các món ăn kỳ diệu...",
+            f"❄️ Bông tuyết đang mang tin vui Noel đến...",
+            f"🔔 Chuông Giáng Sinh đang vang lên..."
+        ]
+        
         loading_embed = discord.Embed(
-            title="🤖 **Đang xử lý thực đơn...**",
-            description="⚡ AI đang phân tích hình ảnh của bạn...\n\n🔄 *Vui lòng đợi trong giây lát...*",
-            color=0x3498DB
+            title="🎄✨ PHÉP MÀU NOEL ĐANG DIỄN RA ✨�",
+            description=f"""
+```diff
++ 🌟 SANTA'S WORKSHOP ĐANG HOẠT ĐỘNG 🌟
+```
+
+{loading_messages[now.second % len(loading_messages)]}
+
+⏳ **Chỉ còn {days_to_christmas} ngày nữa là Noel!** 
+❄️ **Không khí lễ hội** đang bao trùm mọi nơi...
+🎁 **Món quà đặc biệt** đang được chuẩn bị...
+
+```
+Ho ho ho! Vui lòng đợi trong giây lát... ✨
+```
+""",
+            color=0x228B22
         )
-        loading_embed.set_footer(text="🚀 Powered by Google AI")
+        loading_embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+        loading_embed.set_image(url="https://images.unsplash.com/photo-1576020799627-aeac74d58064?w=600&h=200&fit=crop")
         pending_message = await context.reply(embed=loading_embed)
 
         try:
@@ -88,17 +125,59 @@ class OrderCommands(commands.Cog, name="order_commands"):
                     raise ValueError("No valid menu items found")
                     
             except (json.JSONDecodeError, ValueError) as e:
-                await pending_message.edit(content=f"Lỗi khi phân tích thực đơn: {e}. Vui lòng thử lại với hình ảnh rõ ràng hơn.")
+                error_embed = discord.Embed(
+                    title="🎄 Lỗi phân tích thực đơn Noel",
+                    description=f"Santa không thể đọc được thực đơn: {e}\n\nVui lòng thử lại với hình ảnh rõ ràng hơn!",
+                    color=0xC41E3A
+                )
+                error_embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+                try:
+                    await pending_message.edit(embed=error_embed)
+                except discord.NotFound:
+                    await context.send(embed=error_embed, ephemeral=True)
                 return
 
             await pending_message.delete()
             
-            # Create success notification
+            # Magical Christmas success notification
+            celebration_messages = [
+                f"🎅 Ho ho ho! Santa đã chuẩn bị {len(menu)} món ăn kỳ diệu!",
+                f"🎄 Thành công! {len(menu)} món Noel đặc biệt đang chờ bạn!",
+                f"⭐ Tuyệt vời! Elf đã tìm thấy {len(menu)} công thức ma thuật!",
+                f"🎁 Chúc mừng! {len(menu)} món quà Noel đã sẵn sàng!"
+            ]
+            
+            import datetime
+            now = datetime.datetime.now()
+            success_message = celebration_messages[now.second % len(celebration_messages)]
+            
             success_embed = discord.Embed(
-                title="✅ **Thực đơn đã sẵn sàng!**",
-                description="🎉 AI đã xử lý thành công! Menu đặt hàng đang được tạo...",
-                color=0x00D4AA
+                title="🎄✨ PHÉP MÀU NOEL ĐÃ THÀNH CÔNG! ✨🎄",
+                description=f"""
+```diff
++ � SANTA'S WORKSHOP ĐÃ HOÀN TẤT! 🌟
+```
+
+{success_message}
+
+```ansi
+╔══════════════════════════════════╗
+║    🎅 BỮA TIỆC NOEL SẴN SÀNG! 🎅  ║
+║                                  ║
+║   ❄️ Không khí lễ hội đang lan   ║
+║      tỏa khắp mọi nơi! ❄️        ║
+║                                  ║
+║  🎁 Hãy bắt đầu đặt món ngay! 🎁  ║
+╚══════════════════════════════════╝
+```
+
+🔔 **Chuông Giáng Sinh đang vang lên báo hiệu bữa tiệc bắt đầu!**
+✨ **Mỗi món ăn đều chứa đựng phép màu của mùa Noel!** ✨
+""",
+                color=0x228B22
             )
+            success_embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+            success_embed.set_image(url="https://images.unsplash.com/photo-1544456850-4eb1f1fc7df8?w=600&h=200&fit=crop")
             temp_msg = await context.send(embed=success_embed, delete_after=delete_cd_time)
             
             view = MenuView(menu, context)
@@ -108,20 +187,25 @@ class OrderCommands(commands.Cog, name="order_commands"):
         except Exception as e:
             print(f"Error in order command: {e}")
             error_embed = discord.Embed(
-                title="❌ **Đã xảy ra lỗi!**",
-                description=f"💥 Lỗi: `{e}`\n\n🔄 Vui lòng thử lại với hình ảnh rõ ràng hơn.",
-                color=0xE74C3C
+                title="❄️ Đã xảy ra lỗi Noel",
+                description=f"Oops! Santa gặp sự cố: `{e}`\n\nVui lòng thử lại với hình ảnh thực đơn Noel rõ ràng hơn!",
+                color=0xC41E3A
             )
-            await pending_message.edit(embed=error_embed)
+            error_embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+            try:
+                await pending_message.edit(embed=error_embed)
+            except discord.NotFound:
+                # If pending message was deleted, send a new error message
+                await context.send(embed=error_embed, ephemeral=True)
 
     @commands.hybrid_command(
         name="finalize_order",
-        description="Chốt tất cả đơn hàng hiện tại (Chỉ Admin)",
+        description="Chốt tất cả đơn hàng Noel (Chỉ Admin)",
     )
     @commands.has_permissions(administrator=True)
     async def finalize_order(self, context: Context) -> None:
         """
-        Chốt tất cả đơn hàng - chỉ dành cho admin.
+        Chốt tất cả đơn hàng Noel - chỉ dành cho admin.
 
         :param context: The application command context.
         """
@@ -129,9 +213,11 @@ class OrderCommands(commands.Cog, name="order_commands"):
         # Check if there's an active order menu
         if not hasattr(self.bot, 'active_order_view') or self.bot.active_order_view is None:
             embed = discord.Embed(
-                title="Không tìm thấy thực đơn đang hoạt động. Sử dụng lệnh order trước để tạo thực đơn.",
-                color=0xE02B2B
+                title="🎄 Không tìm thấy thực đơn Noel",
+                description="Vui lòng sử dụng lệnh `/order` với hình ảnh thực đơn Noel trước!",
+                color=0xE67E22
             )
+            embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
             await context.reply(embed=embed, ephemeral=True)
             return
             
@@ -140,7 +226,13 @@ class OrderCommands(commands.Cog, name="order_commands"):
         
         # Check if there are any orders
         if not active_view.user_orders:
-            await context.reply("Không có đơn nào để chốt!", ephemeral=True)
+            embed = discord.Embed(
+                title="🎁 Chưa có đơn hàng Noel",
+                description="Không có đơn nào để chốt. Santa đang chờ mọi người đặt món Noel!",
+                color=0xE67E22
+            )
+            embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+            await context.reply(embed=embed, ephemeral=True)
             return
         
         # Finalize all orders
