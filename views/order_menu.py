@@ -1,10 +1,18 @@
 import datetime
+from datetime import timezone, timedelta
 import discord
 from discord.ext.commands import Context
 from views.order_modal import OrderModal
 from views.order_summary import OrderSummaryView
 from views.finalized_order_view import FinalizedOrderView
 from utils import var_global
+
+# Vietnam timezone (UTC+7)
+VIETNAM_TZ = timezone(timedelta(hours=7))
+
+def get_vietnam_time():
+    """Get current time in Vietnam timezone"""
+    return datetime.datetime.now(VIETNAM_TZ)
 
 class MenuView(discord.ui.View):
     def __init__(self, menu: list, context: Context, message_id=None):
@@ -22,65 +30,76 @@ class MenuView(discord.ui.View):
         if hasattr(context.bot, 'active_order_view'):
             context.bot.active_order_view = self
         
-        # Enhanced dropdown with better styling
+        # Magical Christmas dropdown with countdown feeling
+        import datetime
+        now = datetime.datetime.now()
+        days_to_christmas = 25 - now.day if now.month == 12 else 31 - now.day + 25
+        
+        christmas_placeholders = [
+            f"🎄 Chỉ còn {days_to_christmas} ngày! Chọn món Noel yêu thích... 🎅",
+            f"❄️ Noel đang đến gần! Hãy chọn món ăn kỳ diệu... ✨",
+            f"🎁 Santa đang chờ! Chọn món để bắt đầu phép màu... 🔔",
+            f"🌟 Giáng Sinh 2025 đang đến! Chọn món ăn thần tiên... 🎄"
+        ]
+        
         self.food_select = discord.ui.Select(
-            placeholder="🍽️ Chọn món ăn yêu thích của bạn...",
+            placeholder=christmas_placeholders[now.minute % len(christmas_placeholders)],
             min_values=1,
             max_values=1,
             options=[
                 discord.SelectOption(
                     label=food[:23] + "..." if len(food) > 23 else food,
                     value=food,
-                    description=f"🛒 Thêm {food} vào đơn hàng",
+                    description=f"🎁 Thêm {food} vào giỏ Noel kỳ diệu của bạn!",
                     emoji="🥘" if "cơm" in food.lower() else 
                           "🍜" if any(x in food.lower() for x in ["bún", "phở", "miến"]) else
                           "🥩" if "thịt" in food.lower() else
                           "🐟" if "cá" in food.lower() else
                           "🍲" if "canh" in food.lower() else
-                          "🥬" if "rau" in food.lower() else "🍽️"
+                          "🥬" if "rau" in food.lower() else "🎄"
                 ) for food in menu
             ]
         )
         self.food_select.callback = self.food_select_callback
         self.add_item(self.food_select)
         
-        # Enhanced buttons with better styling
+        # Christmas themed buttons with festive styling
         clear_all_button = discord.ui.Button(
             label="Xóa tất cả",
             style=discord.ButtonStyle.danger,
             custom_id="clear_all_order",
-            emoji="🗑️",
+            emoji="🎁",
             row=1
         )
         clear_all_button.callback = self.clear_all_order_callback
         self.add_item(clear_all_button)
         
         view_button = discord.ui.Button(
-            label="Xem đơn hàng",
+            label="Xem giỏ Noel",
             style=discord.ButtonStyle.primary,
             custom_id="view_order",
-            emoji="👁️",
+            emoji="🎅",
             row=1
         )
         view_button.callback = self.view_order_callback
         self.add_item(view_button)
         
-        # Refresh button for better UX
+        # Refresh button with Christmas theme
         refresh_button = discord.ui.Button(
             label="Làm mới",
             style=discord.ButtonStyle.secondary,
             custom_id="refresh_menu",
-            emoji="🔄",
+            emoji="❄️",
             row=1
         )
         refresh_button.callback = self.refresh_callback
         self.add_item(refresh_button)
         
         finalize_button = discord.ui.Button(
-            label="Chốt đơn hàng",
+            label="Chốt đơn Noel",
             style=discord.ButtonStyle.success,
             custom_id="finalize_order",
-            emoji="✅",
+            emoji="🎄",
             row=2
         )
         finalize_button.callback = self.finalize_order_callback
@@ -373,42 +392,43 @@ class MenuView(discord.ui.View):
             await self.message.edit(embed=embed, view=self)
 
     def create_menu_embed(self):
-        """Create a stunning menu embed with enhanced visuals"""
-        # Dynamic color based on time of day
-        current_hour = datetime.datetime.now().hour
-        if 6 <= current_hour < 12:
-            color = 0xFFD700  # Golden morning
-            time_emoji = "🌅"
-            time_greeting = "Chào buổi sáng!"
-        elif 12 <= current_hour < 17:
-            color = 0xFF6B35  # Orange afternoon
-            time_emoji = "☀️"
-            time_greeting = "Chào buổi chiều!"
-        elif 17 <= current_hour < 20:
-            color = 0xFF8C00  # Dark orange evening
-            time_emoji = "🌆"
-            time_greeting = "Chào buổi tối!"
-        else:
-            color = 0x4169E1  # Royal blue night
-            time_emoji = "🌙"
-            time_greeting = "Chào buổi tối!"
+        """Create a magical Christmas menu embed that brings the Christmas spirit alive"""
+        # Dynamic Christmas colors based on day - making it feel like Christmas is approaching
+        vn_time = get_vietnam_time()
+        
+        # Count down to Christmas feeling
+        days_to_christmas = 25 - vn_time.day if vn_time.month == 12 else 31 - vn_time.day + 25
+        christmas_countdown = f"🎅 Chỉ còn {days_to_christmas} ngày nữa là Noel! "
+        
+        # Christmas colors rotation for festive feeling
+        christmas_colors = [0xC41E3A, 0x228B22, 0xFFD700, 0xDC143C, 0x008B00]  # Red, Green, Gold, Crimson, Dark Green
+        color = christmas_colors[vn_time.minute % len(christmas_colors)]
 
         embed = discord.Embed(
-            title=f"🍽️ **THỰC ĐƠN HÔM NAY** 🍽️",
+            title="🎄✨ THỰC ĐƠN NOEL KỲ DIỆU ✨🎄",
             description=f"""
-{time_emoji} **{time_greeting}**
-📅 **Ngày:** {datetime.datetime.now().strftime('%d/%m/%Y')}
-⏰ **Thời gian:** {datetime.datetime.now().strftime('%H:%M')}
+╔══════════════════════════════════╗
+║  🎅🎄 CHÀO MỪNG ĐẾN VỚI NOEL! 🎄🎅  ║
+╚══════════════════════════════════╝
 
-✨ *Chào mừng bạn đến với hệ thống đặt món thông minh!*
+{christmas_countdown}
+📅 **Hôm nay:** {vn_time.strftime('%d/%m/%Y')} 
+⏰ **Giờ Noel:** {vn_time.strftime('%H:%M')} (Vietnam)
+�️ **Thời tiết:** Ấm áp và đầy yêu thương
+
+❄️ **Không khí Noel đang lan toa khắp nơi...** ❄️
+🎁 **Mỗi món ăn đều chứa đựng phép màu Giáng Sinh** 🎁
+🕯️ **Hãy cùng nhau tạo nên kỷ niệm đáng nhớ** �️
 """,
             color=color
         )
         
-        # Enhanced menu display with categories
+        # Christmas themed menu display
         menu_text = ""
+        christmas_emojis = ["🎁", "🎄", "⭐", "🔔", "❄️", "🕯️"]
         for i, item in enumerate(self.menu, 1):
-            # Add appropriate emoji based on food type
+            # Add Christmas emoji and food type emoji
+            christmas_emoji = christmas_emojis[i % len(christmas_emojis)]
             if "cơm" in item.lower():
                 emoji = "🍚"
             elif any(x in item.lower() for x in ["bún", "phở", "miến"]):
@@ -424,10 +444,10 @@ class MenuView(discord.ui.View):
             else:
                 emoji = "🍽️"
             
-            menu_text += f"`{i:02d}.` {emoji} **{item}**\n"
+            menu_text += f"`{i:02d}.` {christmas_emoji} {emoji} **{item}**\n"
         
         embed.add_field(
-            name="🍽️ **DANH SÁCH MÓN ĂN**",
+            name="🎄🍽️ THỰC ĐƠN GIÁNG SINH KỲ DIỆU 🍽️🎄",
             value=menu_text,
             inline=False
         )
@@ -448,65 +468,117 @@ class MenuView(discord.ui.View):
                     else:
                         total_by_food[food] = qty
                     
-                    orders_text += f"▸ **{food}** `x{qty}` 👤 *{user_name}*\n"
+                    # Add Christmas spirit to order display
+                    christmas_spirit = ["🎄", "🎅", "🎁", "⭐", "❄️", "🔔"][user_count % 6]
+                    orders_text += f"{christmas_spirit} **{food}** `x{qty}` 👤 *{user_name}* ✨\n"
             
             if orders_text:
                 embed.add_field(
-                    name=f"🛒 **ĐƠN HÀNG HIỆN TẠI** ({user_count} người đặt)",
-                    value=orders_text,
+                    name=f"🎅🎁 ĐƠN HÀNG NOEL KỲ DIỆU 🎁🎅 ({user_count} người tham gia tiệc)",
+                    value=f"```\n╔════ DANH SÁCH ĐẶT HÀNG ════╗\n```\n{orders_text}```\n╚═══════════════════════════╝\n```",
                     inline=False
                 )
                 
-                # Beautiful totals display
-                totals_text = ""
+                # Magical Christmas totals display
+                totals_text = "```\n🌟 THỐNG KÊ PHÉP MÀU NOEL 🌟\n```\n"
                 total_items = 0
                 for food, total in total_by_food.items():
                     total_items += total
-                    # Add progress bar visualization
-                    progress_bar = "█" * min(total, 10) + "░" * max(0, 10 - total)
-                    totals_text += f"▸ **{food}**: `{total}` `{progress_bar}`\n"
+                    # Enhanced Christmas progress visualization
+                    if total >= 5:
+                        progress_bar = "🎄🎄🎄🎄🎄🌟✨"
+                    elif total >= 3:
+                        progress_bar = "🎄🎄🎄🌟❄️❄️"
+                    else:
+                        progress_bar = "🎄" * total + "❄️" * (5 - total)
+                    
+                    totals_text += f"🎁 **{food}**: `{total} phần` {progress_bar} ✨\n"
+                
+                totals_text += f"\n🏆 **TỔNG CỘ NOEL**: `{total_items} món kỳ diệu` 🎅\n"
+                totals_text += f"🎄 **TINH THẦN NOEL**: `Đang lan tỏa khắp nơi!` ❄️"
                 
                 embed.add_field(
-                    name=f"📊 **THỐNG KÊ TỔNG KẾT** ({total_items} món)",
+                    name=f"📊🎄 BẢNG THỐNG KÊ GIÁNG SINH 🎄📊",
                     value=totals_text,
                     inline=False
                 )
         
-        # Status with enhanced styling
+        # Magical Christmas status with countdown feeling
+        vn_time = get_vietnam_time()
+        days_to_christmas = 25 - vn_time.day if vn_time.month == 12 else 31 - vn_time.day + 25
+        
         if self.is_finalized:
-            status_text = "🔒 **TRẠNG THÁI:** `ĐÃ CHỐT ĐƠN` - Không thể thay đổi"
-            embed.color = 0x95A5A6  # Gray for finalized
+            status_text = f"""
+```diff
++ 🔔 BỮA TIỆC NOEL ĐÃ HOÀN TẤT! 🔔
+```
+🎅 **Ho ho ho!** Santa đã chuẩn bị xong mọi thứ!
+🎁 **Phép màu Noel** đã lan tỏa đến tất cả mọi người!
+✨ **Chúc mừng Giáng Sinh** - Hãy tận hưởng khoảnh khắc kỳ diệu này!
+"""
+            embed.color = 0xC41E3A  # Christmas red
         else:
-            status_text = "🟢 **TRẠNG THÁI:** `ĐANG MỞ ĐƠN` - Sẵn sàng nhận đặt hàng"
+            status_text = f"""
+```ansi
+🎄 ĐANG MỞ ĐƠN - NOEL ĐANG ĐẾN GẦN! 🎄
+```
+⏰ **Chỉ còn {days_to_christmas} ngày nữa là Giáng Sinh!**
+❄️ **Không khí lễ hội** đang bao trùm khắp nơi
+🌟 **Hãy nhanh chóng đặt món** để tham gia bữa tiệc Noel!
+🎁 **Mỗi món ăn** đều chứa đựng tình yêu thương của mùa lễ hội
+"""
+            embed.color = christmas_colors[vn_time.second % len(christmas_colors)]
             
         embed.add_field(
-            name="📝 **TRẠNG THÁI ĐẶT HÀNG**",
+            name="🎅� TRẠNG THÁI PHÉP MÀU NOEL 🎄🎅",
             value=status_text,
             inline=False
         )
         
-        # Enhanced footer with tips
+        # Magical Christmas footer with seasonal feeling
+        current_time = vn_time.strftime('%H:%M')
         if self.is_finalized:
-            footer_text = "🎉 Đơn hàng đã hoàn tất • Gordon Meow Meow Service ⭐"
+            footer_text = f"🎉 {current_time} - Bữa tiệc Noel đã sẵn sàng! Chúc mừng Giáng Sinh 2025! 🎄✨"
         else:
-            footer_text = "💡 Mẹo: Sử dụng menu dropdown để đặt món nhanh • Gordon Meow Meow Service ⭐"
+            if int(current_time.split(':')[0]) < 12:
+                time_feeling = "☀️ Buổi sáng Noel đầy hy vọng"
+            elif int(current_time.split(':')[0]) < 18:
+                time_feeling = "🌤️ Buổi chiều Noel ấm áp"
+            else:
+                time_feeling = "🌙 Đêm Noel lung linh sao"
+            footer_text = f"{time_feeling} • {current_time} • 🎅 Gordon Meow Meow Christmas Magic Service ✨"
             
         embed.set_footer(
             text=footer_text,
-            icon_url="https://cdn-icons-png.flaticon.com/512/3075/3075977.png"
+            icon_url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png"
         )
         
-        # Add a beautiful banner image
-        embed.set_image(url="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=200&fit=crop&crop=center")
+        # Add Christmas feast banner image
+        embed.set_image(url="https://images.unsplash.com/photo-1512389098783-66b81f86e199?w=1200&h=300&fit=crop")
+        
+        # Add Christmas tree icon as thumbnail
+        embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
         
         return embed
         
     def create_order_summary_embed(self, user):
-        """Create a beautiful personal order summary"""
+        """Create a beautiful Christmas personal order summary"""
+        vn_time = get_vietnam_time()
         embed = discord.Embed(
-            title="🛒 **ĐƠN HÀNG CỦA BẠN**",
-            description=f"👤 **Khách hàng:** {user.mention}\n⭐ *Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!*",
-            color=0x00D4AA  # Teal color
+            title="�✨ ĐƠN HÀNG NOEL CÁ NHÂN ✨🎄",
+            description=f"""
+╔═══════════════════════════════════╗
+║       🎅 GIỎ NOEL CỦA BẠN 🎅       ║
+╚═══════════════════════════════════╝
+
+🎅 Ho ho ho, {user.display_name}! Chào mừng bạn đến với bữa tiệc Noel!
+
+🗓️ **Hôm nay:** {vn_time.strftime('%d/%m/%Y')} 
+⏰ **Giờ Noel:** {vn_time.strftime('%H:%M:%S')} 
+❄️ **Tâm trạng:** Đầy phấn khích và háo hức! 
+🎁 *Cảm ơn bạn đã tham gia bữa tiệc Noel cùng chúng tôi!*
+""",
+            color=0xC41E3A  # Christmas red
         )
 
         user_id = str(user.id)
@@ -520,47 +592,53 @@ class MenuView(discord.ui.View):
                 total_items += qty
 
         if not order_text:
-            order_text = "```\n🍽️ Chưa có món ăn nào trong đơn hàng\n```"
+            order_text = "```\n� Chưa có món nào trong giỏ Noel\n```"
 
         embed.add_field(
-            name="📋 **CHI TIẾT ĐƠN HÀNG**",
+            name="📋 **CHI TIẾT ĐƠN NOEL**",
             value=order_text,
             inline=False
         )
         
-        # Summary statistics without price
+        # Christmas summary statistics
         summary_text = f"""
-🍽️ **Tổng số món:** `{total_items}`
-📊 **Trạng thái:** {'`Đã chốt`' if self.is_finalized else '`Đang chờ`'}
+� **Tổng số món Noel:** `{total_items}`
+📊 **Trạng thái:** {'`🔔 Đã chốt đơn Noel`' if self.is_finalized else '`🎄 Đang chuẩn bị`'}
+✨ **Chúc mừng Noel:** `Ho ho ho!`
 """
         
         embed.add_field(
-            name="📊 **THỐNG KÊ**",
+            name="📊 **THỐNG KÊ NOEL**",
             value=summary_text,
             inline=False
         )
         
         embed.set_footer(
-            text=f"🕐 Cập nhật lúc: {datetime.datetime.now().strftime('%H:%M:%S')} • Sử dụng các nút bên dưới để chỉnh sửa",
+            text=f"🎄 Cập nhật: {vn_time.strftime('%d/%m/%Y %H:%M:%S')} • Gordon Meow Meow Christmas Service",
             icon_url=user.avatar.url if user.avatar else None
         )
         
-        embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2515/2515183.png")
+        # Use user avatar as thumbnail
+        embed.set_thumbnail(url=user.avatar.url if user.avatar else "https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+        
+        # Add Christmas feast image
+        embed.set_image(url="https://images.unsplash.com/photo-1576020799627-aeac74d58064?w=800&h=200&fit=crop")
         
         return embed
 
     def create_finalized_order_embed(self):
-        """Create a spectacular finalized order summary"""
+        """Create a spectacular Christmas finalized order summary"""
+        vn_time = get_vietnam_time()
         embed = discord.Embed(
-            title="🎉 **HOÀN TẤT ĐẶT HÀNG** 🎉",
+            title="� **HOÀN TẤT ĐẶT HÀNG NOEL** �",
             description=f"""
-🏆 **Chúc mừng! Đơn hàng đã được xử lý thành công**
-📅 **Thời gian hoàn tất:** {datetime.datetime.now().strftime('%d/%m/%Y lúc %H:%M:%S')}
-⚡ **Trạng thái:** `HOÀN TẤT` - Sẵn sàng xử lý
+� **Ho Ho Ho! Bữa tiệc Noel đã được chuẩn bị hoàn tất!**
+📅 **Thời gian hoàn tất:** {vn_time.strftime('%d/%m/%Y lúc %H:%M:%S')}
+⚡ **Trạng thái:** `🔔 NOEL ĐÃ SẴN SÀNG` 
 
-*Cảm ơn tất cả mọi người đã tham gia đặt hàng!* ✨
+🌟 *Chúc mừng Noel! Cảm ơn tất cả mọi người đã tham gia bữa tiệc!* 🎁
 """,
-            color=0xFF1744  # Bright red for excitement
+            color=0xC41E3A  # Christmas red for excitement
         )
         
         # Individual orders with enhanced styling (without price)
@@ -598,23 +676,29 @@ class MenuView(discord.ui.View):
         
         totals_text = "```diff\n+ TỔNG KẾT CUỐI CÙNG +\n```\n"
         for food, qty in food_totals.items():
-            progress = "█" * min(qty, 15) + "░" * max(0, 15 - qty)
-            totals_text += f"▸ **{food}**: `{qty}` `{progress}`\n"
+            christmas_progress = "🎄" * min(qty, 8) + "❄️" * max(0, 8 - qty)
+            totals_text += f"🎁 **{food}**: `{qty}` {christmas_progress}\n"
         
-        totals_text += f"\n🏆 **TỔNG CỘNG:** `{total_items}` món"
-        totals_text += f"\n👥 **SỐ NGƯỜI THAM GIA:** `{total_orders}` người"
+        totals_text += f"\n🏆 **TỔNG CỘNG:** `{total_items}` món Noel"
+        totals_text += f"\n🎅 **SỐ NGƯỜI THAM GIA:** `{total_orders}` người"
+        totals_text += f"\n🌟 **CHÚC MỪNG NOEL 2025!**"
         
         embed.add_field(
-            name="📊 **THỐNG KÊ TỔNG KẾT**",
+            name="📊 **THỐNG KÊ TỔNG KẾT NOEL**",
             value=totals_text,
             inline=False
         )
         
         embed.set_footer(
-            text="🌟 Cảm ơn bạn đã sử dụng Gordon Meow Meow Service! 🌟",
-            icon_url="https://cdn-icons-png.flaticon.com/512/3183/3183463.png"
+            text="� Chúc mừng Noel! Cảm ơn bạn đã sử dụng Gordon Meow Meow Christmas Service! ⭐",
+            icon_url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png"
         )
         
-        embed.set_image(url="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=200&fit=crop&crop=center")
+        # Add Christmas celebration food image
+        embed.set_image(url="https://images.unsplash.com/photo-1512389098783-66b81f86e199?w=1200&h=300&fit=crop")
         
+        # Add Christmas success/celebration thumbnail
+        embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/2913/2913465.png")
+        
+        return embed
         return embed

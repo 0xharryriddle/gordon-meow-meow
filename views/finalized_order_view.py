@@ -1,6 +1,14 @@
 import discord
 import datetime
+from datetime import timezone, timedelta
 from utils import var_global
+
+# Vietnam timezone (UTC+7)
+VIETNAM_TZ = timezone(timedelta(hours=7))
+
+def get_vietnam_time():
+    """Get current time in Vietnam timezone"""
+    return datetime.datetime.now(VIETNAM_TZ)
 
 class FinalizedOrderView(discord.ui.View):
     """Enhanced finalized order view with premium features"""
@@ -87,12 +95,13 @@ class FinalizedOrderView(discord.ui.View):
             await self.menu_view.update_public_menu()
             
             # Create success embed for temporary notification
+            vn_time = get_vietnam_time()
             success_embed = discord.Embed(
                 title="🔓 **Đơn hàng đã được mở lại!**",
                 description=f"""
 ✅ **Trạng thái:** Đơn hàng đã được mở lại thành công
 👤 **Được mở bởi:** {interaction.user.mention}
-⏰ **Thời gian:** {datetime.datetime.now().strftime('%H:%M:%S')}
+⏰ **Thời gian:** {vn_time.strftime('%H:%M:%S')}
 
 *Mọi người có thể tiếp tục đặt thêm món!* 🍽️
 """,
@@ -127,13 +136,14 @@ class FinalizedOrderView(discord.ui.View):
     async def copy_summary_callback(self, interaction: discord.Interaction):
         """Enhanced copy functionality with beautiful formatting"""
         try:
+            vn_time = get_vietnam_time()
             copy_text = self.menu_view.generate_copy_text()
             
             # Enhanced copy format without pricing
             enhanced_copy = f"""
 🎉 **TỔNG KẾT ĐƠN HÀNG** 🎉
-📅 Ngày: {datetime.datetime.now().strftime('%d/%m/%Y')}
-⏰ Thời gian: {datetime.datetime.now().strftime('%H:%M:%S')}
+📅 Ngày: {vn_time.strftime('%d/%m/%Y')}
+⏰ Thời gian: {vn_time.strftime('%H:%M:%S')}
 
 {copy_text}
 
@@ -157,12 +167,13 @@ class FinalizedOrderView(discord.ui.View):
     async def print_format_callback(self, interaction: discord.Interaction):
         """Create print-friendly format"""
         try:
+            vn_time = get_vietnam_time()
             print_text = f"""
 {"="*50}
            ĐƠN HÀNG THỰC PHẨM
 {"="*50}
-Ngày: {datetime.datetime.now().strftime('%d/%m/%Y')}
-Giờ:  {datetime.datetime.now().strftime('%H:%M:%S')}
+Ngày: {vn_time.strftime('%d/%m/%Y')}
+Giờ:  {vn_time.strftime('%H:%M:%S')}
 
 {self.menu_view.generate_copy_text()}
 
